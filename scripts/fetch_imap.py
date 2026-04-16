@@ -11,6 +11,7 @@ from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 from typing import Any
+from terminal_encoding import configure_terminal_encoding
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "output" / "emails.json"
@@ -20,6 +21,8 @@ PORT_ENV = "IMAP_PORT"
 USERNAME_ENV = "IMAP_USERNAME"
 PASSWORD_ENV = "IMAP_PASSWORD"
 MAILBOX_ENV = "IMAP_MAILBOX"
+
+configure_terminal_encoding()
 
 
 def decode_header_value(value: str | None) -> str:

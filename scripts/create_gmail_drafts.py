@@ -13,6 +13,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from terminal_encoding import configure_terminal_encoding
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.compose"]
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,8 @@ MANAGED_HEADER = "X-Email-Triage-Managed"
 SOURCE_REF_HEADER = "X-Email-Triage-Source-Ref"
 MANAGED_VALUE = "true"
 SOURCE_REF_FIELDS = ("source_ref", "source_thread_id", "thread_id", "source_message_id", "message_id")
+
+configure_terminal_encoding()
 
 
 def normalize_value(value: str) -> str:

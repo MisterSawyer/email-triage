@@ -56,7 +56,8 @@ Before fetching emails, the agent must automatically:
    - Windows: `.venv\Scripts\python.exe`
    - Linux/macOS: `.venv/bin/python`
 3. Install dependencies into that venv (`<venv-python> -m pip install -r requirements.txt`).
-4. Use the same venv Python to run helper scripts.
+4. Set `PYTHONENCODING=utf-8` for script execution to avoid terminal encoding issues with emoji/non-ASCII text.
+5. Use the same venv Python to run helper scripts.
 
 ## Workflow
 1. Read `references/response-guidelines.md` first.

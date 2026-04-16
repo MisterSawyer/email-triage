@@ -46,6 +46,11 @@ $env:IMAP_FROM="me@example.com"
 Notes:
 
 - Default IMAP SSL port is `993`.
+- For terminal output with emojis/non-ASCII text, set `PYTHONENCODING` to UTF-8 before running scripts:
+
+```powershell
+$env:PYTHONENCODING="utf-8"
+```
 
 ## What it does
 

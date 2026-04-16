@@ -11,6 +11,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from terminal_encoding import configure_terminal_encoding
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,8 @@ CLIENT_CONFIG_ENV = "GMAIL_OAUTH_CLIENT_CONFIG_JSON"
 CLIENT_ID_ENV = "GMAIL_OAUTH_CLIENT_ID"
 CLIENT_SECRET_ENV = "GMAIL_OAUTH_CLIENT_SECRET"
 PROJECT_ID_ENV = "GMAIL_OAUTH_PROJECT_ID"
+
+configure_terminal_encoding()
 
 
 def get_client_config() -> dict[str, Any]:

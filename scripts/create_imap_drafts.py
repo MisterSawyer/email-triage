@@ -13,6 +13,7 @@ from email.mime.text import MIMEText
 from email.parser import BytesParser
 from pathlib import Path
 from typing import Any
+from terminal_encoding import configure_terminal_encoding
 
 HOST_ENV = "IMAP_HOST"
 PORT_ENV = "IMAP_PORT"
@@ -25,6 +26,8 @@ MANAGED_HEADER = "X-Email-Triage-Managed"
 SOURCE_REF_HEADER = "X-Email-Triage-Source-Ref"
 MANAGED_VALUE = "true"
 SOURCE_REF_FIELDS = ("source_ref", "source_thread_id", "thread_id", "source_message_id", "message_id")
+
+configure_terminal_encoding()
 
 
 def normalize_value(value: str) -> str:
