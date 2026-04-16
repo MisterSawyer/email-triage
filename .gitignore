@@ -1,0 +1,10 @@
+.agents/
+skills-lock.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+output/*.json
+output/*.md
+token.json
+token-compose.json

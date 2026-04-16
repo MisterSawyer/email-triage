@@ -1,0 +1,145 @@
+---
+name: email-triage
+description: Agent-agnostic inbox triage workflow for Gmail or any IMAP server. Fetch messages, classify priority, and propose reply drafts using local response guidelines. Do not send emails automatically unless explicitly asked.
+---
+
+# Email Triage Workflow
+
+## Purpose
+This workflow helps process inbox messages in a controlled, reviewable flow:
+1. fetch emails from Gmail or IMAP with the local helper scripts
+2. classify each email
+3. ignore or deprioritize low-value email
+4. propose responses using `references/response-guidelines.md`
+5. optionally create drafts in Gmail or IMAP, but never send automatically unless explicitly asked
+
+## Default behavior
+- Never send an email automatically.
+- Prefer draft proposals over direct actions.
+- Be conservative when classifying urgency.
+- Treat newsletters, ads, marketing blasts, and similar bulk mail as non-actionable by default.
+- Do not invent facts, attachments, deadlines, offers, or commitments.
+- If specific actionable context is missing, do not draft a reply unless the user explicitly asks for one.
+- If the runtime can execute commands, it should perform setup and script execution automatically.
+
+## User prerequisites (only these)
+The user should provide environment variables for the selected provider.
+
+For Gmail:
+- `GMAIL_OAUTH_CLIENT_ID`
+- `GMAIL_OAUTH_CLIENT_SECRET`
+- optional `GMAIL_OAUTH_PROJECT_ID`
+- optional `GMAIL_OAUTH_CLIENT_CONFIG_JSON` (full JSON alternative)
+
+For IMAP:
+- `IMAP_HOST`
+- `IMAP_USERNAME`
+- `IMAP_PASSWORD`
+- optional `IMAP_PORT` (default: `993`)
+- optional `IMAP_MAILBOX` (default: `INBOX`)
+- optional `IMAP_DRAFTS_MAILBOX` (auto-detected if not set)
+- optional `IMAP_FROM` (fallback sender address for draft headers)
+
+If required env vars are missing for the selected provider, stop and report exactly which variables are missing.
+
+## Required files
+- `references/response-guidelines.md`
+- `scripts/fetch_gmail.py`
+- `scripts/fetch_imap.py`
+- `scripts/create_gmail_drafts.py`
+- `scripts/create_imap_drafts.py`
+
+## Agent runtime setup (mandatory)
+Before fetching emails, the agent must automatically:
+1. Ensure `.venv` exists at repo root (`python -m venv .venv` if missing).
+2. Resolve the venv Python executable:
+   - Windows: `.venv\Scripts\python.exe`
+   - Linux/macOS: `.venv/bin/python`
+3. Install dependencies into that venv (`<venv-python> -m pip install -r requirements.txt`).
+4. Use the same venv Python to run helper scripts.
+
+## Workflow
+1. Read `references/response-guidelines.md` first.
+2. Run runtime setup steps automatically (no user action).
+3. Decide provider:
+   - if the user explicitly asks for Gmail or IMAP, use that provider.
+   - if not explicit, default to Gmail.
+4. Run the fetcher automatically:
+   - for Gmail:
+     - script: `scripts/fetch_gmail.py`
+     - default query: `in:inbox`
+     - default limit: `5`
+     - default output: `output/emails.json`
+   - for IMAP:
+     - script: `scripts/fetch_imap.py`
+     - default search: `ALL`
+     - default limit: `5`
+     - default output: `output/emails.json`
+   - use narrower Gmail query or IMAP search only if the user requests it.
+5. Read `output/emails.json`.
+6. Classify each email into one of these buckets:
+   - ignore
+   - low_priority
+   - needs_reply
+   - urgent
+7. Mark these as ignore by default unless the user says otherwise:
+   - newsletters
+   - promotional mail
+   - social notifications
+   - automated system notifications
+   - receipts that do not require action
+   - any email with clear bulk-marketing signals such as `List-Unsubscribe` headers, "view in browser", campaign-style discounts, or mass-audience language
+8. For each email in `needs_reply` or `urgent` that includes specific actionable context, produce:
+   - one-sentence summary
+   - action items
+   - recommended next step
+   - draft reply that follows the guidelines
+9. For emails without specific actionable context, set recommended action to no reply and do not generate a draft reply body.
+10. Save the final result to:
+   - `output/triage-report.md`
+   - `output/reply-drafts.json`
+   - include `source_ref` explicitly in every draft item so corrected drafts can replace older ones
+   - build `source_ref` deterministically from the source email (prefer `thread:{thread_id}`, fallback `message:{message_id}`)
+11. Only if explicitly asked:
+   - for Gmail: create drafts by running `scripts/create_gmail_drafts.py` automatically.
+   - for IMAP: create drafts by running `scripts/create_imap_drafts.py output/reply-drafts.json` automatically.
+   - after draft creation, verify for superseded drafts and remove the older versions (keep the newest draft for the same source reference).
+
+## Required output structure
+For each actionable message include:
+- message_id
+- thread_id
+- source_ref
+- from
+- subject
+- received_at
+- priority
+- classification
+- short_summary
+- action_items
+- recommended_action
+- draft_reply
+
+## reply-drafts.json template
+Each item in `output/reply-drafts.json` must include:
+- source_ref (required, stable across retries/updates)
+- to
+- subject
+- body
+
+Optional passthrough source fields:
+- source_thread_id
+- source_message_id
+
+## Drafting rules
+- Answer the sender's concrete question first.
+- Keep drafts concise unless the incoming message clearly needs detail.
+- Preserve names, dates, and factual details from the original message.
+- Always emit `source_ref` in draft items and keep it stable when updating a draft for the same email/thread.
+- Never claim an attachment exists unless it actually does.
+- Never accept contracts, pricing, or legal terms automatically.
+- If the message is newsletter/promotional/ads/social/system noise and the user did not request a response, do not draft a reply.
+- If there is no concrete ask, question, or clear next action, do not draft a reply. Recommend no reply instead.
+
+## If the inbox is very large
+If the query returns too many emails to review well, work in batches and say so in the report.
