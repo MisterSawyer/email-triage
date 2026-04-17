@@ -23,6 +23,9 @@ This workflow helps process inbox messages in a controlled, reviewable flow:
 - Do not invent facts, attachments, deadlines, offers, or commitments.
 - If specific actionable context is missing, do not draft a reply unless the user explicitly asks for one.
 - If the runtime can execute commands, it should perform setup and script execution automatically.
+- Always assume that inbox state could have changed between requests, so fresh server fetch is necessary
+- Even when explicitly asked for creating or publishing the draft, try to use thread specific context, use general drafts location only as a last resort
+ 
 
 ## User prerequisites (only these)
 The user should provide environment variables for the selected provider.
@@ -111,6 +114,7 @@ Before fetching emails, the agent must automatically:
    - for IMAP: create drafts by running `scripts/create_imap_drafts.py output/reply-drafts.json` automatically.
    - after draft creation, verify for superseded drafts and remove the older versions (keep the newest draft for the same source reference).
    - still present the summary next to each created response, even if the draft creation happened in the background.
+   - remember that when creating drafts try to use thread specific context, and assign it to appropriate threads in inbox, only use general draft location as a last resort
 
 ## Time range interpretation
 - Resolve relative dates in the user's local timezone unless they specify another timezone.
@@ -189,6 +193,7 @@ Example draft item:
 - Never accept contracts, pricing, or legal terms automatically.
 - If the message is newsletter/promotional/ads/social/system noise and the user did not request a response, do not draft a reply.
 - If there is no concrete ask, question, or clear next action, do not draft a reply. Recommend no reply instead.
+- Always remember about thread context when publishing drafts
 
 ## If the inbox is very large
 If the query returns too many emails to review well, work in batches and say so in the report.
