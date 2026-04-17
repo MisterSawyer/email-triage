@@ -7,4 +7,5 @@ venv/
 output/*.json
 output/*.md
 token.json
+token-gmail.json
 token-compose.json

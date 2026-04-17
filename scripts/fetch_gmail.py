@@ -13,10 +13,12 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from terminal_encoding import configure_terminal_encoding, safe_print
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
+SCOPES = [GMAIL_READONLY_SCOPE, GMAIL_COMPOSE_SCOPE]
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "output" / "emails.json"
-TOKEN_PATH = ROOT / "token.json"
+TOKEN_PATH = ROOT / "token-gmail.json"
 CLIENT_CONFIG_ENV = "GMAIL_OAUTH_CLIENT_CONFIG_JSON"
 CLIENT_ID_ENV = "GMAIL_OAUTH_CLIENT_ID"
 CLIENT_SECRET_ENV = "GMAIL_OAUTH_CLIENT_SECRET"
@@ -69,7 +71,17 @@ def get_credentials() -> Credentials:
 
     if TOKEN_PATH.exists():
         token_info = json.loads(TOKEN_PATH.read_text(encoding="utf-8"))
-        creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+        stored_scopes_raw = token_info.get("scopes", [])
+        if isinstance(stored_scopes_raw, str):
+            stored_scopes = {entry.strip() for entry in stored_scopes_raw.split() if entry.strip()}
+        elif isinstance(stored_scopes_raw, list):
+            stored_scopes = {str(entry).strip() for entry in stored_scopes_raw if str(entry).strip()}
+        else:
+            stored_scopes = set()
+
+        # Force one-time re-consent when older single-scope tokens are present.
+        if set(SCOPES).issubset(stored_scopes):
+            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
