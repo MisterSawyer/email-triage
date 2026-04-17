@@ -66,10 +66,22 @@ $env:PYTHONENCODING="utf-8"
 - generates suggested replies into `output/reply-drafts.json`
 - avoids drafting replies when no specific actionable context is present
 - writes a summary report to `output/triage-report.md`
+- includes the short summary with every actionable reply so it is visible even when draft creation runs in the background
+- resolves ambiguous relative date ranges conservatively and reports the absolute dates it used
 - optionally creates provider drafts from `output/reply-drafts.json` (Gmail or IMAP)
 - when source thread metadata is provided, creates reply-style drafts (`In-Reply-To`/`References`, and Gmail `threadId`)
 - when a corrected draft is created for the same source email/thread, keeps the newest and removes older managed drafts
 - never sends emails automatically
+
+## Relative date ranges
+
+When the request uses relative wording, the agent should resolve it conservatively in the user's local timezone and choose the smallest reasonable window.
+
+- `until yesterday` means only yesterday, not all mail up to yesterday
+- `since yesterday` means from the start of yesterday through now
+- ambiguous relative ranges should be restated with absolute dates in the report or summary
+
+Example: on `2026-04-17`, `until yesterday` resolves to `2026-04-16` in the local timezone unless the user asks for a broader range.
 
 ## Fetch commands
 
@@ -121,6 +133,7 @@ For thread-aware behavior in clients that support it, include an RFC `source_mes
 [
   {
     "source_ref": "thread:18c4d6e9a1b2c3d4",
+    "short_summary": "The sender wants a status update on the project timeline.",
     "source_thread_id": "18c4d6e9a1b2c3d4",
     "source_message_id": "<abc123@example.com>",
     "source_references": [
@@ -137,6 +150,7 @@ For thread-aware behavior in clients that support it, include an RFC `source_mes
 `source_ref` is required in each draft item. Use a stable value per source email/thread, for example:
 - `thread:<thread_id>` when thread id is known
 - `message:<message_id>` when thread id is unavailable
+- `short_summary` should be included for every actionable draft item so the response is paired with its summary
 
 When building draft items from `output/emails.json`, use:
 - `thread_id` -> `source_thread_id`

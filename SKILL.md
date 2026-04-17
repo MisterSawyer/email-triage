@@ -17,6 +17,7 @@ This workflow helps process inbox messages in a controlled, reviewable flow:
 - Never send an email automatically.
 - Prefer draft proposals over direct actions.
 - Be conservative when classifying urgency.
+- Be conservative when interpreting user-specified time ranges and choose the smallest reasonable window.
 - Treat newsletters, ads, marketing blasts, and similar bulk mail as non-actionable by default.
 - Do not invent facts, attachments, deadlines, offers, or commitments.
 - If specific actionable context is missing, do not draft a reply unless the user explicitly asks for one.
@@ -99,6 +100,7 @@ Before fetching emails, the agent must automatically:
 10. Save the final result to:
    - `output/triage-report.md`
    - `output/reply-drafts.json`
+   - include `short_summary` in every actionable draft item so the response is always shown with its summary
    - include `source_ref` explicitly in every draft item so corrected drafts can replace older ones
    - build `source_ref` deterministically from the source email (prefer `thread:{thread_id}`, fallback `message:{message_id}`)
    - for Gmail/IMAP reply threading, pass through `source_thread_id`, RFC `source_message_id`, and optional `source_references` whenever available
@@ -106,6 +108,15 @@ Before fetching emails, the agent must automatically:
    - for Gmail: create drafts by running `scripts/create_gmail_drafts.py` automatically.
    - for IMAP: create drafts by running `scripts/create_imap_drafts.py output/reply-drafts.json` automatically.
    - after draft creation, verify for superseded drafts and remove the older versions (keep the newest draft for the same source reference).
+   - still present the summary next to each created response, even if the draft creation happened in the background.
+
+## Time range interpretation
+- Resolve relative dates in the user's local timezone unless they specify another timezone.
+- When the user gives an underspecified range, choose the narrowest reasonable interpretation.
+- If the user gives only an end bound such as `until yesterday`, treat it as the single most recent closed day ending yesterday, not an unbounded range into the past.
+- If the user gives only a start bound such as `since yesterday`, treat it as the range from the start of yesterday through now.
+- State the resolved absolute date or datetime range in the report or user-facing summary when relative wording could be ambiguous.
+- Example: on `2026-04-17`, `until yesterday` means `2026-04-16` in the local timezone unless the user explicitly asks for a broader window.
 
 ## Required output structure
 For each actionable message include:
@@ -125,6 +136,7 @@ For each actionable message include:
 ## reply-drafts.json template
 Each item in `output/reply-drafts.json` must include:
 - source_ref (required, stable across retries/updates)
+- short_summary (required for actionable drafts)
 - to
 - subject
 - body
