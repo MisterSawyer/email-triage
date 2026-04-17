@@ -11,7 +11,7 @@ from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
 from typing import Any
-from terminal_encoding import configure_terminal_encoding
+from terminal_encoding import configure_terminal_encoding, safe_print
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "output" / "emails.json"
@@ -197,7 +197,7 @@ def main() -> None:
             collected.append(to_record(uid=uid, raw_email=raw_email))
 
     output_path.write_text(json.dumps(collected, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Saved {len(collected)} emails to {output_path}")
+    safe_print(f"Saved {len(collected)} emails to {output_path}")
 
 
 if __name__ == "__main__":

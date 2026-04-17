@@ -11,7 +11,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from terminal_encoding import configure_terminal_encoding
+from terminal_encoding import configure_terminal_encoding, safe_print
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,7 +68,8 @@ def get_credentials() -> Credentials:
     creds: Credentials | None = None
 
     if TOKEN_PATH.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+        token_info = json.loads(TOKEN_PATH.read_text(encoding="utf-8"))
+        creds = Credentials.from_authorized_user_info(token_info, SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -198,7 +199,7 @@ def main() -> None:
             break
 
     output_path.write_text(json.dumps(collected, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Saved {len(collected)} emails to {output_path}")
+    safe_print(f"Saved {len(collected)} emails to {output_path}")
 
 
 if __name__ == "__main__":

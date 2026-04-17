@@ -13,7 +13,7 @@ from email.mime.text import MIMEText
 from email.parser import BytesParser
 from pathlib import Path
 from typing import Any
-from terminal_encoding import configure_terminal_encoding
+from terminal_encoding import configure_terminal_encoding, safe_print
 
 HOST_ENV = "IMAP_HOST"
 PORT_ENV = "IMAP_PORT"
@@ -340,7 +340,7 @@ def remove_superseded_drafts(
             if store_status == "OK":
                 removed += 1
                 uid_text = redundant_uid.decode("utf-8", errors="replace")
-                print(f"Removed superseded draft UID {uid_text}: {subject} ({reason})")
+                safe_print(f"Removed superseded draft UID {uid_text}: {subject} ({reason})")
 
     if removed:
         expunge_status, _ = client.expunge()
@@ -437,7 +437,7 @@ def main() -> None:
                 raise RuntimeError(f"Failed to append draft #{idx} to mailbox '{drafts_mailbox}'.")
 
             created += 1
-            print(f"Created draft {created}: {subject}")
+            safe_print(f"Created draft {created}: {subject}")
 
         removed = remove_superseded_drafts(
             client=client,
@@ -446,8 +446,8 @@ def main() -> None:
             target_fallback_keys=target_fallback_keys,
         )
 
-    print(f"Created {created} drafts in IMAP mailbox: {drafts_mailbox}")
-    print(f"Removed {removed} superseded draft(s).")
+    safe_print(f"Created {created} drafts in IMAP mailbox: {drafts_mailbox}")
+    safe_print(f"Removed {removed} superseded draft(s).")
 
 
 if __name__ == "__main__":

@@ -52,6 +52,10 @@ Notes:
 $env:PYTHONENCODING="utf-8"
 ```
 
+- Optional output fallback controls:
+  - `EMAIL_TRIAGE_PRINT_ERRORS` (`replace` by default; can be `ignore`, `backslashreplace`, etc.)
+  - `EMAIL_TRIAGE_PRINT_ASCII_ONLY` (`1/true/on` strips non-ASCII characters from console output)
+
 ## What it does
 
 - fetches emails into `output/emails.json`
