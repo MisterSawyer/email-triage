@@ -1,6 +1,6 @@
 ---
 name: email-triage
-description: Agent-agnostic inbox triage workflow for Gmail or any IMAP server. Fetch messages, classify priority, and propose reply drafts using local response guidelines. Do not send emails automatically unless explicitly asked.
+description: Inbox triage workflow for Gmail or any IMAP server. Fetch messages, classify priority, and propose reply drafts using local response guidelines. Do not send emails automatically unless explicitly asked.
 ---
 
 # Email Triage Workflow
@@ -16,6 +16,7 @@ This workflow helps process inbox messages in a controlled, reviewable flow:
 ## Default behavior
 - Never send an email automatically.
 - Prefer draft proposals over direct actions.
+- Prefer proper in-thread replies over standalone drafts whenever reply threading is possible.
 - Be conservative when classifying urgency.
 - Be conservative when interpreting user-specified time ranges and choose the smallest reasonable window.
 - Treat newsletters, ads, marketing blasts, and similar bulk mail as non-actionable by default.
@@ -70,12 +71,12 @@ Before fetching emails, the agent must automatically:
    - for Gmail:
      - script: `scripts/fetch_gmail.py`
      - default query: `in:inbox`
-     - default limit: `5`
+     - default limit: `10`
      - default output: `output/emails.json`
    - for IMAP:
      - script: `scripts/fetch_imap.py`
      - default search: `ALL`
-     - default limit: `5`
+     - default limit: `10`
      - default output: `output/emails.json`
    - use narrower Gmail query or IMAP search only if the user requests it.
 5. Read `output/emails.json`.
@@ -104,6 +105,7 @@ Before fetching emails, the agent must automatically:
    - include `source_ref` explicitly in every draft item so corrected drafts can replace older ones
    - build `source_ref` deterministically from the source email (prefer `thread:{thread_id}`, fallback `message:{message_id}`)
    - for Gmail/IMAP reply threading, pass through `source_thread_id`, RFC `source_message_id`, and optional `source_references` whenever available
+   - when reply-thread metadata is available, prefer a true in-thread reply over a standalone message addressed to the recipient with only a `Re:` subject
 11. Only if explicitly asked:
    - for Gmail: create drafts by running `scripts/create_gmail_drafts.py` automatically.
    - for IMAP: create drafts by running `scripts/create_imap_drafts.py output/reply-drafts.json` automatically.
@@ -141,10 +143,39 @@ Each item in `output/reply-drafts.json` must include:
 - subject
 - body
 
+Use a stable `source_ref` value per source email or thread:
+- `thread:<thread_id>` when thread id is known
+- `message:<message_id>` when thread id is unavailable
+
 Optional passthrough source fields:
 - source_thread_id
 - source_message_id
 - source_references
+
+When building draft items from `output/emails.json`, map:
+- `thread_id` -> `source_thread_id`
+- `internet_message_id` (or `message_id` when it is RFC-style) -> `source_message_id`
+- `references` -> `source_references` (optional)
+
+Example draft item:
+
+```json
+[
+  {
+    "source_ref": "thread:18c4d6e9a1b2c3d4",
+    "short_summary": "The sender wants a status update on the project timeline.",
+    "source_thread_id": "18c4d6e9a1b2c3d4",
+    "source_message_id": "<abc123@example.com>",
+    "source_references": [
+      "<older1@example.com>",
+      "<older2@example.com>"
+    ],
+    "to": "person@example.com",
+    "subject": "Re: Project update",
+    "body": "Hi,\n\nThanks for your email ...\n\nBest,"
+  }
+]
+```
 
 ## Drafting rules
 - Answer the sender's concrete question first.
@@ -152,6 +183,8 @@ Optional passthrough source fields:
 - Preserve names, dates, and factual details from the original message.
 - Always emit `source_ref` in draft items and keep it stable when updating a draft for the same email/thread.
 - For proper thread replies, ensure `source_message_id` is an RFC Message-ID (for example `<abc123@example.com>`).
+- When `source_thread_id` or reply headers are available, build the draft as a reply in the original conversation thread.
+- Do not rely on only the response address and a `Re:` subject when provider-supported threading is possible.
 - Never claim an attachment exists unless it actually does.
 - Never accept contracts, pricing, or legal terms automatically.
 - If the message is newsletter/promotional/ads/social/system noise and the user did not request a response, do not draft a reply.
