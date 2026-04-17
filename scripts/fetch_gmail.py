@@ -167,10 +167,14 @@ def main() -> None:
 
             payload = full.get("payload", {})
             headers = header_map(payload.get("headers", []))
+            gmail_message_id = str(full.get("id", "")).strip()
+            internet_message_id = str(headers.get("message-id", "")).strip()
 
             collected.append(
                 {
-                    "message_id": full["id"],
+                    "message_id": internet_message_id or gmail_message_id,
+                    "gmail_message_id": gmail_message_id,
+                    "internet_message_id": internet_message_id,
                     "thread_id": full.get("threadId", ""),
                     "label_ids": full.get("labelIds", []),
                     "from": headers.get("from", ""),
@@ -178,6 +182,8 @@ def main() -> None:
                     "cc": headers.get("cc", ""),
                     "subject": headers.get("subject", ""),
                     "received_at": headers.get("date", ""),
+                    "in_reply_to": headers.get("in-reply-to", ""),
+                    "references": headers.get("references", ""),
                     "snippet": full.get("snippet", ""),
                     "body_text": extract_plain_text(payload),
                     "body_html": extract_html_text(payload),

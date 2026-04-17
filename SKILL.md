@@ -101,6 +101,7 @@ Before fetching emails, the agent must automatically:
    - `output/reply-drafts.json`
    - include `source_ref` explicitly in every draft item so corrected drafts can replace older ones
    - build `source_ref` deterministically from the source email (prefer `thread:{thread_id}`, fallback `message:{message_id}`)
+   - for Gmail/IMAP reply threading, pass through `source_thread_id`, RFC `source_message_id`, and optional `source_references` whenever available
 11. Only if explicitly asked:
    - for Gmail: create drafts by running `scripts/create_gmail_drafts.py` automatically.
    - for IMAP: create drafts by running `scripts/create_imap_drafts.py output/reply-drafts.json` automatically.
@@ -131,12 +132,14 @@ Each item in `output/reply-drafts.json` must include:
 Optional passthrough source fields:
 - source_thread_id
 - source_message_id
+- source_references
 
 ## Drafting rules
 - Answer the sender's concrete question first.
 - Keep drafts concise unless the incoming message clearly needs detail.
 - Preserve names, dates, and factual details from the original message.
 - Always emit `source_ref` in draft items and keep it stable when updating a draft for the same email/thread.
+- For proper thread replies, ensure `source_message_id` is an RFC Message-ID (for example `<abc123@example.com>`).
 - Never claim an attachment exists unless it actually does.
 - Never accept contracts, pricing, or legal terms automatically.
 - If the message is newsletter/promotional/ads/social/system noise and the user did not request a response, do not draft a reply.

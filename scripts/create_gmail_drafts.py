@@ -25,7 +25,17 @@ PROJECT_ID_ENV = "GMAIL_OAUTH_PROJECT_ID"
 MANAGED_HEADER = "X-Email-Triage-Managed"
 SOURCE_REF_HEADER = "X-Email-Triage-Source-Ref"
 MANAGED_VALUE = "true"
-SOURCE_REF_FIELDS = ("source_ref", "source_thread_id", "thread_id", "source_message_id", "message_id")
+SOURCE_REF_FIELDS = (
+    "source_ref",
+    "source_thread_id",
+    "thread_id",
+    "source_message_id",
+    "internet_message_id",
+    "message_id",
+)
+SOURCE_THREAD_FIELDS = ("source_thread_id", "thread_id")
+SOURCE_MESSAGE_FIELDS = ("source_message_id", "internet_message_id", "message_id")
+SOURCE_REFERENCES_FIELDS = ("source_references", "references")
 
 configure_terminal_encoding()
 
@@ -44,6 +54,71 @@ def extract_source_ref(item: dict[str, Any]) -> str:
         if candidate:
             return candidate
     return ""
+
+
+def extract_thread_id(item: dict[str, Any]) -> str:
+    for field_name in SOURCE_THREAD_FIELDS:
+        candidate = str(item.get(field_name, "")).strip()
+        if candidate:
+            return candidate
+    return ""
+
+
+def normalize_message_id(value: str) -> str:
+    candidate = re.sub(r"\s+", " ", value).strip()
+    if not candidate:
+        return ""
+
+    embedded = re.search(r"<[^<>]+>", candidate)
+    if embedded:
+        candidate = embedded.group(0)
+
+    if candidate.startswith("<") and candidate.endswith(">"):
+        inner = candidate[1:-1].strip()
+        if "@" in inner and " " not in inner:
+            return f"<{inner}>"
+        return ""
+
+    if "@" in candidate and " " not in candidate:
+        return f"<{candidate}>"
+
+    return ""
+
+
+def parse_reference_ids(value: str) -> list[str]:
+    found = [normalize_message_id(match.group(0)) for match in re.finditer(r"<[^<>]+>", value or "")]
+    cleaned = [message_id for message_id in found if message_id]
+    if cleaned:
+        return cleaned
+
+    fallback = normalize_message_id(value)
+    if fallback:
+        return [fallback]
+
+    return []
+
+
+def extract_parent_message_id(item: dict[str, Any]) -> str:
+    for field_name in SOURCE_MESSAGE_FIELDS:
+        candidate = normalize_message_id(str(item.get(field_name, "")))
+        if candidate:
+            return candidate
+    return ""
+
+
+def extract_reference_ids(item: dict[str, Any]) -> list[str]:
+    for field_name in SOURCE_REFERENCES_FIELDS:
+        raw_value = item.get(field_name, "")
+        if isinstance(raw_value, list):
+            joined = " ".join(str(entry) for entry in raw_value)
+        else:
+            joined = str(raw_value)
+
+        parsed = parse_reference_ids(joined)
+        if parsed:
+            return parsed
+
+    return []
 
 
 def get_client_config() -> dict[str, Any]:
@@ -103,15 +178,45 @@ def get_credentials() -> Credentials:
     return creds
 
 
-def build_raw_message(to: str, subject: str, body: str, source_ref: str) -> dict[str, Any]:
+def build_reference_header(reference_ids: list[str], parent_message_id: str) -> str:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for candidate in [*reference_ids, parent_message_id]:
+        if not candidate or candidate in seen:
+            continue
+        ordered.append(candidate)
+        seen.add(candidate)
+
+    return " ".join(ordered)
+
+
+def build_raw_message(
+    to: str,
+    subject: str,
+    body: str,
+    source_ref: str,
+    thread_id: str,
+    parent_message_id: str,
+    reference_ids: list[str],
+) -> dict[str, Any]:
     message = MIMEText(body, _charset="utf-8")
     message["To"] = to
     message["Subject"] = subject
     message[MANAGED_HEADER] = MANAGED_VALUE
     if source_ref:
         message[SOURCE_REF_HEADER] = source_ref
+    if parent_message_id:
+        message["In-Reply-To"] = parent_message_id
+
+    references_header = build_reference_header(reference_ids=reference_ids, parent_message_id=parent_message_id)
+    if references_header:
+        message["References"] = references_header
+
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
-    return {"message": {"raw": raw}}
+    request_body: dict[str, Any] = {"message": {"raw": raw}}
+    if thread_id:
+        request_body["message"]["threadId"] = thread_id
+    return request_body
 
 
 def header_map(headers: list[dict[str, str]]) -> dict[str, str]:
@@ -241,7 +346,8 @@ def main() -> None:
         "drafts_json",
         help=(
             "Path to JSON array with to/subject/body and optional source references "
-            "(source_ref, source_thread_id/thread_id, source_message_id/message_id)."
+            "(source_ref, source_thread_id/thread_id, source_message_id/internet_message_id/message_id, source_references/references). "
+            "For proper Gmail threading, source_message_id should be the RFC Message-ID value."
         ),
     )
     args = parser.parse_args()
@@ -269,12 +375,23 @@ def main() -> None:
             raise ValueError(f"Draft item #{idx} is missing to, subject, or body.")
 
         source_ref = extract_source_ref(item)
+        source_thread_id = extract_thread_id(item)
+        source_message_id = extract_parent_message_id(item)
+        source_references = extract_reference_ids(item)
         if source_ref:
             target_source_refs.add(source_ref)
         else:
             target_fallback_keys.add(build_draft_key(to=to, subject=subject, body=body))
 
-        draft = build_raw_message(to=to, subject=subject, body=body, source_ref=source_ref)
+        draft = build_raw_message(
+            to=to,
+            subject=subject,
+            body=body,
+            source_ref=source_ref,
+            thread_id=source_thread_id,
+            parent_message_id=source_message_id,
+            reference_ids=source_references,
+        )
         service.users().drafts().create(userId="me", body=draft).execute()
         created += 1
         print(f"Created draft {created}: {subject}")

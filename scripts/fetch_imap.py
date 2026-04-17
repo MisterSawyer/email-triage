@@ -104,6 +104,9 @@ def to_record(uid: bytes, raw_email: bytes) -> dict[str, Any]:
 
     return {
         "message_id": message_id,
+        "internet_message_id": decode_header_value(message.get("message-id", "")).strip(),
+        "in_reply_to": decode_header_value(message.get("in-reply-to", "")).strip(),
+        "references": decode_header_value(message.get("references", "")).strip(),
         "thread_id": "",
         "label_ids": [],
         "from": decode_header_value(message.get("from", "")),
